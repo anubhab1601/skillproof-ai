@@ -23,12 +23,8 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, server-to-server)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    // Allow any localhost port in development
-    if (origin.match(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
+    // Allow any origin dynamically to prevent CORS preflight 500 errors
+    callback(null, true);
   },
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Role'],
