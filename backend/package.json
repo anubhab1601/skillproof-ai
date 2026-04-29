@@ -1,0 +1,21 @@
+{
+  "name": "skillproof-backend",
+  "version": "1.0.0",
+  "description": "SkillProof Node.js backend — replaces Cloud Functions on Spark plan",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "firebase-admin": "^13.0.0",
+    "node-cron": "^3.0.3",
+    "razorpay": "^2.9.4",
+    "cloudinary": "^2.5.0",
+    "axios": "^1.7.0",
+    "express-rate-limit": "^7.4.0",
+    "dotenv": "^16.4.5"
+  }
+}

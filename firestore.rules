@@ -1,0 +1,172 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function getUserRole() {
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return userData.role;
+    }
+
+    function isRoleCandidate() {
+      let role = getUserRole();
+      return isAuthenticated() && (role == 'candidate' || role == 'Candidate');
+    }
+
+    function isRoleCompany() {
+      let role = getUserRole();
+      return isAuthenticated() && (role == 'company' || role == 'Company');
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.uid == 'crNoGP1j7RXy5xGraa92PJNFwU43'
+      );
+    }
+
+    // ============================================================
+    // PHASE 1: USERS COLLECTION
+    // ============================================================
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      allow read, write: if isAdmin();
+
+      // All subcollections — owner can read/write
+      match /{subcollection}/{docId} {
+        allow read, write: if isOwner(uid);
+        allow read: if isAuthenticated();
+        allow read, write: if isAdmin();
+      }
+    }
+
+    // ============================================================
+    // PHASE 2: TASKS COLLECTION
+    // ============================================================
+    match /tasks/{taskId} {
+      // Any authenticated user can read any task
+      allow read: if isAuthenticated();
+
+      // Company can create tasks
+      allow create: if isRoleCompany()
+        && request.resource.data.companyUid == request.auth.uid;
+
+      // Company can update their own tasks
+      allow update: if isAuthenticated()
+        && resource.data.companyUid == request.auth.uid;
+
+      // Admins can read/write everything
+      allow read, write: if isAdmin();
+
+      // No client deletes
+      allow delete: if false;
+
+      // --- questions subcollection ---
+      match /questions/{questionId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated();
+        allow read, write: if isAdmin();
+      }
+    }
+
+    // ============================================================
+    // PHASE 3: SUBMISSIONS COLLECTION
+    // ============================================================
+    match /submissions/{submissionId} {
+      // Any authenticated user can read submissions
+      // (the query filters on candidateUid/companyUid ensure data scoping)
+      allow read: if isAuthenticated();
+
+      // Candidates can create submissions
+      allow create: if isAuthenticated();
+
+      // No client updates or deletes
+      allow update: if false;
+      allow delete: if false;
+
+      // Admins can read/write all
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // PHASE 4: ESCROW ACCOUNTS
+    // ============================================================
+    match /escrowAccounts/{taskId} {
+      allow read: if isAuthenticated()
+        && resource.data.companyUid == request.auth.uid;
+      allow write: if false;
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // PHASE 5: JOB OFFERS
+    // ============================================================
+    match /jobOffers/{offerId} {
+      allow create: if isRoleCompany()
+        && request.resource.data.companyUid == request.auth.uid;
+
+      allow read: if isAuthenticated()
+        && (resource.data.companyUid == request.auth.uid
+            || resource.data.candidateUid == request.auth.uid);
+
+      allow update: if isAuthenticated()
+        && (resource.data.candidateUid == request.auth.uid
+            || resource.data.companyUid == request.auth.uid);
+
+      allow delete: if false;
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // PHASE 5: NOTIFICATIONS
+    // ============================================================
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated()
+        && resource.data.recipientUid == request.auth.uid;
+
+      allow update: if isAuthenticated()
+        && resource.data.recipientUid == request.auth.uid;
+
+      // Allow authenticated users to create notifications
+      allow create: if isAuthenticated();
+      allow delete: if false;
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // PHASE 6: DISPUTES
+    // ============================================================
+    match /disputes/{disputeId} {
+      allow create: if isAuthenticated();
+
+      allow read: if isAuthenticated()
+        && (resource.data.candidateUid == request.auth.uid
+            || resource.data.companyUid == request.auth.uid);
+
+      allow update: if false;
+      allow delete: if false;
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // PHASE 6: PLATFORM STATS
+    // ============================================================
+    match /platformStats/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
